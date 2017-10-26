@@ -37,7 +37,10 @@ import com.healthyfish.healthyfish.R;
 import com.healthyfish.healthyfish.adapter.HomePageHealthInfoAadpter;
 import com.healthyfish.healthyfish.adapter.HomePageHealthWorkShopAdapter;
 import com.healthyfish.healthyfish.adapter.WholeSchemeAdapter;
+import com.healthyfish.healthyfish.constant.Constants;
 import com.healthyfish.healthyfish.eventbus.NoticeMessage;
+import com.healthyfish.healthyfish.eventbus.RefresHomeMsg;
+import com.healthyfish.healthyfish.eventbus.WeChatReceiveSysMdrMsg;
 import com.healthyfish.healthyfish.ui.activity.HealthNews;
 import com.healthyfish.healthyfish.ui.activity.Inspection_report.InspectionReport;
 import com.healthyfish.healthyfish.ui.activity.MoreHealthNews;
@@ -45,7 +48,9 @@ import com.healthyfish.healthyfish.ui.activity.appointment.AppointmentHome;
 import com.healthyfish.healthyfish.ui.activity.healthy_management.MainIndexHealthyManagement;
 import com.healthyfish.healthyfish.ui.activity.interrogation.ChoiceDepartment;
 import com.healthyfish.healthyfish.ui.activity.medicalrecord.AllMedRec;
+import com.healthyfish.healthyfish.ui.activity.personal_center.MyNews;
 import com.healthyfish.healthyfish.ui.widget.AutoCardView;
+import com.healthyfish.healthyfish.utils.AutoLogin;
 import com.healthyfish.healthyfish.utils.MyRecyclerViewOnItemListener;
 import com.healthyfish.healthyfish.utils.MySharedPrefUtil;
 import com.healthyfish.healthyfish.utils.MyToast;
@@ -55,13 +60,16 @@ import com.healthyfish.healthyfish.utils.RetrofitManagerUtils;
 import com.healthyfish.healthyfish.utils.Utils1;
 import com.zhy.autolayout.AutoLinearLayout;
 import com.zhy.autolayout.AutoRelativeLayout;
+
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 import org.litepal.crud.DataSupport;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.Unbinder;
@@ -123,6 +131,7 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
     private String url2 = "http://219.159.248.209/demo/TestServlet";
     final BeanSessionIdReq beanSessionIdReq = new BeanSessionIdReq();
     private HomePageHealthInfoAadpter healthInfoAdapter;
+    private boolean isRefresh = false;//是否已经加载过首页
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -131,21 +140,36 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
         rootView = inflater.inflate(R.layout.fragment_home, container, false);
         unbinder = ButterKnife.bind(this, rootView);
         EventBus.getDefault().register(this);
-        initAll();
+        String user = MySharedPrefUtil.getValue("user");
+        String sid = MySharedPrefUtil.getValue("sid");
+        if (!TextUtils.isEmpty(user) && !TextUtils.isEmpty(sid)) {
+            isRefresh = true;
+            AutoLogin.autoLogin();
+            initAll();
+        }
         return rootView;
 
     }
 
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void refreshHomeFragment(RefresHomeMsg refresHomeMsg) {
+        if (!isRefresh) {
+            initAll();
+        }
+    }
+
     private void initAll() {
         initBannerRequest();//网络访问获取轮播图内容
-        initInfoPrmopt("9");//测试消息提示文本
+        if (Constants.NUMBER_SYS_INFO > 0) {
+            initInfoPrmopt(String.valueOf(Constants.NUMBER_SYS_INFO));
+        }
         initFunctionMenu();//初始化菜单监听
 
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(500);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -173,7 +197,6 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
                 .getHealthyInfoByRetrofit(OkHttpUtils.getRequestBody(new BeanHomeImgSlideReq()), new Subscriber<ResponseBody>() {
                     @Override
                     public void onCompleted() {
-                        setbanner(imgs, desc);//给轮播图设置图片
                     }
 
                     @Override
@@ -192,6 +215,7 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
                                 //Log.i("imgstr", beanHomeImgSlideRespItem.getImg());
                                 desc.add(beanHomeImgSlideRespItem.getDesc());
                             }
+                            setbanner(imgs, desc);//给轮播图设置图片
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -265,7 +289,7 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
             planList.setVisibility(View.GONE);
         }
 
-}
+    }
 
     //测试消息提示
     private void initInfoPrmopt(String string) {
@@ -388,7 +412,7 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
 
                             @Override
                             public void onError(Throwable e) {
-                                MyToast.showToast(getActivity(), "加载健康咨询出错啦！");
+                                //MyToast.showToast(getActivity(), "加载健康咨询出错");
                             }
 
                             @Override
@@ -408,10 +432,10 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
                                                 newsList.add(bean);
                                             }
                                         } else {
-                                            MyToast.showToast(getActivity(), "加载健康咨询出错啦");
+                                            //MyToast.showToast(getActivity(), "加载健康咨询出错");
                                         }
                                     } else {
-                                        MyToast.showToast(getActivity(), "加载健康咨询出错");
+                                        //MyToast.showToast(getActivity(), "加载健康咨询出错");
                                     }
                                 }
                             }
@@ -427,6 +451,8 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
         fmMedRec.setOnClickListener(this);
         fmHealthManagement.setOnClickListener(this);
         fmRemoteMonitoring.setOnClickListener(this);
+        // 信息提示监听
+        topbarInfo.setOnClickListener(this);
     }
 
     // 初始化健康工坊
@@ -462,6 +488,11 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
+            case R.id.topbar_info:
+                Constants.NUMBER_SYS_INFO = 0;
+                initInfoPrmopt("0");
+                startActivity(new Intent(mContext, MyNews.class));
+                break;
             case R.id.fm_interrogation2:
                 startActivity(new Intent(mContext, ChoiceDepartment.class));
                 break;
@@ -484,6 +515,7 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
                 break;
             case R.id.fm_fm_inspection_report:
                 Intent toInspectionReport = new Intent(getActivity(), InspectionReport.class);
+                toInspectionReport.putExtra("key",Constants.FOR_LIST);
                 startActivity(toInspectionReport);
                 break;
 
@@ -516,5 +548,19 @@ public class HomeFragment extends Fragment implements View.OnClickListener {
         }
     }
 
+    /*
+    * 更新病历夹系统消息
+    * */
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void upDateMdrSystemInfo(final WeChatReceiveSysMdrMsg msg) {
+        Constants.NUMBER_SYS_INFO++;
+        initInfoPrmopt(String.valueOf(Constants.NUMBER_SYS_INFO));
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        // EventBus.getDefault().unregister(this);
+    }
 }
 

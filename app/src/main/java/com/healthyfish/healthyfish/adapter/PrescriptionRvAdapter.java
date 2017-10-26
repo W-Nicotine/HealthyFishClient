@@ -28,7 +28,7 @@ import butterknife.ButterKnife;
 
 
 /**
- * 描述：健康计划
+ * 描述：处方的适配器
  * 作者：WKJ on 2017/7/20.
  * 邮箱：
  * 编辑：WKJ
@@ -80,7 +80,7 @@ public class PrescriptionRvAdapter extends RecyclerView.Adapter<PrescriptionRvAd
                 holder.drugNameLayout.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        showOptions(finalBean);
+                        showDetail(finalBean);
                     }
                 });
             }catch (JSONException e){
@@ -149,7 +149,7 @@ public class PrescriptionRvAdapter extends RecyclerView.Adapter<PrescriptionRvAd
     TextView ipresPhysicQuantity;
     @BindView(R.id.ipres_pack_spec)
     TextView ipresPackSpec;
-    private void showOptions(BeanPresList bean) {
+    private void showDetail(BeanPresList bean) {
 
         TextView close;
         View rootView;

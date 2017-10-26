@@ -353,12 +353,13 @@ public class ChoiceService extends BaseActivity {
             case R.id.btn_sendTheMind:
                 //跳转到送心意页面，需要传递医生标识
                 if (!TextUtils.isEmpty(uid)) {
-                    Intent intent = new Intent(this, SendMind.class);
-                    Bundle bundle = new Bundle();
-                    bundle.putString("name", doctorName);
-                    bundle.putString("imgUrl", imgDoctorUrl);
-                    intent.putExtras(bundle);
-                    startActivity(intent);
+//                    Intent intent = new Intent(this, SendMind.class);
+//                    Bundle bundle = new Bundle();
+//                    bundle.putString("name", doctorName);
+//                    bundle.putString("imgUrl", imgDoctorUrl);
+//                    intent.putExtras(bundle);
+//                    startActivity(intent);
+                    MyToast.showToast(ChoiceService.this, "非常抱歉！暂未开通此功能");
                 } else {
                     MyToast.showToast(ChoiceService.this, "您还没有登录呦！请先登录");
                 }
@@ -541,9 +542,10 @@ public class ChoiceService extends BaseActivity {
             if (currentDate.getTime() <= endDate.getTime()) {//服务未过期
                 Intent intent = new Intent(this, HealthyChat.class);
                 intent.putExtra("BeanDoctorChatInfo", beanDoctorChatInfo);
-                // TODO: 2017/9/25 开启跳转
-                //startActivity(intent);
-                goToBuyService(serviceKey, true, beanDoctorChatInfo);
+                // 跳转到聊天界面
+                startActivity(intent);
+                // 测试跳转到购买服务
+                //goToBuyService(serviceKey, true, beanDoctorChatInfo);
                 // 添加用户已购买服务的医生列表
                 addPictureConsultServiceDoctorList();
             } else {//服务已过期

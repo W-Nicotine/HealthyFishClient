@@ -26,6 +26,8 @@ import com.healthyfish.healthyfish.POJO.BeanSessionIdResp;
 import com.healthyfish.healthyfish.POJO.BeanUserLoginReq;
 import com.healthyfish.healthyfish.adapter.MainVpAdapter;
 import com.healthyfish.healthyfish.eventbus.InitAllMessage;
+import com.healthyfish.healthyfish.eventbus.RefresHomeMsg;
+import com.healthyfish.healthyfish.eventbus.RefreshMyAppointmentMsg;
 import com.healthyfish.healthyfish.ui.activity.BaseActivity;
 import com.healthyfish.healthyfish.ui.activity.Login;
 import com.healthyfish.healthyfish.ui.fragment.HealthWorkshopFragment;
@@ -62,6 +64,7 @@ import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
 import rx.schedulers.Schedulers;
 
+import static android.app.PendingIntent.getActivity;
 import static com.healthyfish.healthyfish.constant.Constants.HttpHealthyFishyUrl;
 
 
@@ -140,7 +143,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
 
     private boolean isExit = false;
 
-    private Handler mHandler = new Handler(){
+    private Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
@@ -159,8 +162,9 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         //初始化界面
         init();
         String user = MySharedPrefUtil.getValue("user");
-        if (!TextUtils.isEmpty(user)) {
-
+        String sid = MySharedPrefUtil.getValue("sid");
+        if (!TextUtils.isEmpty(user) && !TextUtils.isEmpty(sid)) {
+            AutoLogin.autoLogin();
             BeanUserLoginReq beanUserLoginReq = JSON.parseObject(user, BeanUserLoginReq.class);
             final String uid = beanUserLoginReq.getMobileNo();
             MyApplication.uid = uid;
@@ -175,25 +179,13 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
             upDatePersonalInformation();
 
             //登录积分
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        Thread.sleep(3000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    PersonalPointUtils.addPoint(MainActivity.this);
-                }
-            }).start();
-
+            getLoginPoint();
 
         } else {
             MyToast.showToast(this, "您还没有登录呦");
             startActivity(new Intent(this, Login.class));
         }
     }
-
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void refreshLoginState(InitAllMessage initAllMessage) {
@@ -205,27 +197,16 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
 
         initPermission();//初始化相机和内存卡读写权限
 
-        upDatePersonalInformation();//更新用户的个人信息
+        //upDatePersonalInformation();//更新用户的个人信息，登录的成功后会在其页面更新，此处不必更新
 
         //登录积分
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.sleep(3000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                PersonalPointUtils.addPoint(MainActivity.this);
-            }
-        }).start();
-
+        getLoginPoint();
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void toInterrogationFragment(BeanMyAppointmentItem beanMyAppointmentItem) {
-        Log.i("LYQ", "MainActivity_setTab");
         setTab(1);//挂号成功后通知跳转到问诊页面InterrogationFragment
+        EventBus.getDefault().post(new RefreshMyAppointmentMsg(beanMyAppointmentItem.getRespKey()));
     }
 
 
@@ -390,12 +371,8 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
                 .getSidByRetrofit(OkHttpUtils.getRequestBody(beanSessionIdReq), new Subscriber<ResponseBody>() {
                     @Override
                     public void onCompleted() {
-                        String user = MySharedPrefUtil.getValue("user");
-                        String sid = MySharedPrefUtil.getValue("sid");
-                        if (!TextUtils.isEmpty(user) && !TextUtils.isEmpty(sid)) {
-                            AutoLogin.autoLogin();
-                            MqttUtil.startAsync();
-                        }
+                        EventBus.getDefault().post(new RefresHomeMsg());//首次登录时登陆成功并获取sid后刷新首页
+                        MqttUtil.startAsync();
                     }
 
                     @Override
@@ -473,7 +450,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
                                         }
                                     }
                                 } else {
-                                    Toast.makeText(MainActivity.this, "个人信息有误,请更新您的个人信息",Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(MainActivity.this, "个人信息有误,请更新您的个人信息", Toast.LENGTH_SHORT).show();
                                 }
                             } else {
                                 //MyToast.showToast(MainActivity.this, "您还没有填写个人信息，请填写您的个人信息");//首页不用提醒，在个人中心页面再提醒
@@ -508,6 +485,25 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         });
     }
 
+    //登录积分
+    private void getLoginPoint() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        PersonalPointUtils.addPoint(MainActivity.this);
+                    }
+                });
+            }
+        }).start();
+    }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -530,7 +526,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
             System.exit(0);
         } else {
             isExit = true;
-            MyToast.showToast(MyApplication.getContetxt(),"再按一次退出程序");
+            MyToast.showToast(MyApplication.getContetxt(), "再按一次退出程序");
             mHandler.sendEmptyMessageDelayed(0, 2000);
         }
     }
